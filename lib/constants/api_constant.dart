@@ -8,6 +8,29 @@ class ApiConstant {
     return 'http://localhost:8000/api';
   }
 
+  static String? resolveImageUrl(String? imageUrl) {
+    final value = imageUrl?.trim();
+    if (value == null || value.isEmpty) return null;
+
+    final imageUri = Uri.tryParse(value);
+    if (imageUri == null) return null;
+
+    final apiUri = Uri.parse(baseUrlLaravel);
+    if (imageUri.hasScheme) {
+      if (imageUri.host == 'localhost' || imageUri.host == '127.0.0.1') {
+        return imageUri
+            .replace(
+              host: apiUri.host,
+              port: imageUri.hasPort ? imageUri.port : apiUri.port,
+            )
+            .toString();
+      }
+      return imageUri.toString();
+    }
+
+    return apiUri.replace(path: '/').resolveUri(imageUri).toString();
+  }
+
   static const String publicApiUrl =
       'https://www.themealdb.com/api/json/v1/1/search.php?s=fish';
 

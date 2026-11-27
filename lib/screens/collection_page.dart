@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../constants/api_constant.dart';
 import '../models/restaurant_model.dart';
 import '../models/seafood_list_model.dart';
 import '../services/crud_service.dart';
@@ -79,6 +80,7 @@ class _CollectionPageState extends State<CollectionPage>
                 );
               }
               if (!ctx.mounted) return;
+              if (!mounted) return;
               Navigator.pop(ctx);
               _loadData();
             },
@@ -177,6 +179,9 @@ class _CollectionPageState extends State<CollectionPage>
                     final picker = ImagePicker();
                     final file = await picker.pickImage(
                       source: ImageSource.gallery,
+                      imageQuality: 85,
+                      maxWidth: 1600,
+                      maxHeight: 1600,
                     );
                     if (file != null) {
                       setDialogState(() => pickedImage = file);
@@ -203,7 +208,7 @@ class _CollectionPageState extends State<CollectionPage>
                     ingredientCtrl.text.trim().isEmpty) {
                   return;
                 }
-                await CrudService.saveSeafoodList(
+                final success = await CrudService.saveSeafoodList(
                   id: item?.id,
                   restaurantId: selectedRestoId,
                   title: titleCtrl.text.trim(),
@@ -213,12 +218,74 @@ class _CollectionPageState extends State<CollectionPage>
                   imageFile: pickedImage,
                 );
                 if (!ctx.mounted) return;
+                if (!success) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(
+                      content: Text('Gagal menyimpan menu atau foto'),
+                    ),
+                  );
+                  return;
+                }
                 Navigator.pop(ctx);
                 _loadData();
               },
               child: const Text('Simpan'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showSeafoodDetails(SeafoodListModel item) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: _SeafoodImage(
+                  imageUrl: item.imageUrl,
+                  width: double.infinity,
+                  height: 220,
+                  iconSize: 64,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                item.title,
+                style: Theme.of(context).textTheme.headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text('Tempat: ${item.restaurant?.name ?? "-"}'),
+              const SizedBox(height: 4),
+              Text('Bahan utama: ${item.mainIngredient}'),
+              if (item.notes.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Catatan',
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(item.notes),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Tutup'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -301,26 +368,13 @@ class _CollectionPageState extends State<CollectionPage>
                                 return Card(
                                   margin: const EdgeInsets.only(bottom: 10),
                                   child: ListTile(
-                                    leading:
-                                        item.imageUrl != null &&
-                                            item.imageUrl!.isNotEmpty
-                                        ? ClipRRect(
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                            child: Image.network(
-                                              item.imageUrl!,
-                                              width: 55,
-                                              height: 55,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, _, _) =>
-                                                  const Icon(
-                                                    Icons.set_meal,
-                                                    size: 40,
-                                                  ),
-                                            ),
-                                          )
-                                        : const Icon(Icons.set_meal, size: 40),
+                                    onTap: () => _showSeafoodDetails(item),
+                                    leading: _SeafoodImage(
+                                      imageUrl: item.imageUrl,
+                                      width: 55,
+                                      height: 55,
+                                      iconSize: 32,
+                                    ),
                                     title: Text(
                                       item.title,
                                       style: const TextStyle(
@@ -438,6 +492,52 @@ class _CollectionPageState extends State<CollectionPage>
           }
         },
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class _SeafoodImage extends StatelessWidget {
+  const _SeafoodImage({
+    required this.imageUrl,
+    required this.width,
+    required this.height,
+    required this.iconSize,
+  });
+
+  final String? imageUrl;
+  final double width;
+  final double height;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = ApiConstant.resolveImageUrl(imageUrl);
+    final placeholder = ColoredBox(
+      color: SeafoodColors.paleMint,
+      child: Center(
+        child: Icon(Icons.set_meal, size: iconSize, color: SeafoodColors.green),
+      ),
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: url == null
+            ? placeholder
+            : Image.network(
+                url,
+                fit: BoxFit.cover,
+                webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+                loadingBuilder: (context, child, loadingProgress) =>
+                    loadingProgress == null ? child : placeholder,
+                errorBuilder: (context, error, stackTrace) {
+                  debugPrint('Gagal memuat foto menu dari $url: $error');
+                  return placeholder;
+                },
+              ),
       ),
     );
   }

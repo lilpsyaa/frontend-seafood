@@ -26,10 +26,20 @@ class SeafoodListModel {
       title: json['title'] ?? '',
       mainIngredient: json['main_ingredient'] ?? '',
       notes: json['notes'] ?? '',
-      imageUrl: json['image_url'],
+      imageUrl: _readImageUrl(json),
       restaurant: json['restaurant'] != null
           ? RestaurantModel.fromJson(json['restaurant'])
           : null,
     );
+  }
+
+  static String? _readImageUrl(Map<String, dynamic> json) {
+    for (final key in ['image_url', 'image_path', 'image']) {
+      final value = json[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+    }
+    return null;
   }
 }
